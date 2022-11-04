@@ -1,0 +1,1 @@
+Prevesti program sa: $gcc -Wall -g -pthread -lrt lab1.c -o lab1
