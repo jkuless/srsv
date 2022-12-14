@@ -168,7 +168,6 @@ void process_task() {
 
         processing_time = simulate_processing_time();
 
-        //omoguci prekidanje ako je potrebno
         while (my_work == work_current && processing_time > 0 && !end) {
             t_5.tv_sec = 0;
             t_5.tv_nsec = 5 * 1e6;
@@ -195,7 +194,6 @@ void process_task() {
             return;
         }
     }
-    //omoguci prekidanje ako je potrebno
 }
 
 void init(timer_t timer, struct sigevent *event, struct itimerspec *period) {
