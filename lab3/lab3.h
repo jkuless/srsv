@@ -7,19 +7,20 @@ struct stat {
 	unsigned long int runs;
     unsigned long int overruns;
     struct timespec t_max_reply;
+    struct timespec t_sum_reaction;
     struct timespec t_sum_reply;
 };
 
 struct input {
 	const int id;
     const struct timespec T;
-    const struct timespec t0;
+     struct timespec t0;
 
     int state;
     int reply;
     struct timespec t_state;
     struct timespec t_reaction;
-    struct timespec t_response;
+    struct timespec t_reply;
     struct stat stat;
 };
 
@@ -62,3 +63,4 @@ do {                                                  \
         t_now.tv_sec % 100, t_now.tv_nsec/1000, ##__VA_ARGS__); \
     pthread_mutex_unlock(&print_lock);                       \
 } while (0)
+
