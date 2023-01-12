@@ -92,35 +92,32 @@ int simulate_processing_time() {
 }
 
 
-
-
 static void *controller(void* x) {
 	struct input* in = x;
-	int state;
+	int state = 0;
 	long int proc_time_share;
-	struct timespec t_now, t_next_period = {0, 100000000};
+	struct timespec t_next_period;
 	t_next_period = in->t0;
 	clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &in->t0, NULL); 	// wait for input to start
 
 	while (!end) {
-		state = in->state;
-		TIMESPEC_GET_TIME(in->t_reaction);
 		t_next_period = in->t_state;
+		TIMESPEC_ADD(t_next_period, t0);
 		TIMESPEC_ADD(t_next_period, in->T);
-		proc_time_share = simulate_processing_time();
-		proc_time_share = ((in->T.tv_sec * 1000) + (in->T.tv_nsec / 1e6)) * proc_time_share / 10; //convert period to ms and multiply by percentage of period
-		PRINT("CTRL%02d: starting to process state %d\n", in->id, state);
-		simulate_Xms(proc_time_share);
-		PRINT("CTRL%02d: finished processing state: %d\n", in->id, state);
-		in->reply = state;
-		TIMESPEC_GET_TIME(in->t_reply);
 
-		TIMESPEC_GET_TIME(t_now);
-		while (TIMESPEC_GT(t_next_period, t_now)) {
-			TIMESPEC_GET_TIME(t_now);
+		if (state != in->state) {
+			state = in->state;
+			TIMESPEC_GET_TIME(in->t_reaction);
+			proc_time_share = simulate_processing_time();
+			proc_time_share = ((in->T.tv_sec * 1000) + (in->T.tv_nsec / 1e6)) * proc_time_share / 10; //convert period to ms and multiply by percentage of period
+			PRINT("CTRL%02d: starting to process state %d\n", in->id, state);
+			simulate_Xms(proc_time_share);
+			PRINT("CTRL%02d: finished processing state: %d\n", in->id, state);
+			in->reply = state;
+			TIMESPEC_GET_TIME(in->t_reply);
 		}
+		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next_period, NULL);
 	}
-
 	return NULL;
 } 
 
@@ -199,7 +196,6 @@ void interrupt_handler(int sig) {
 	}
 
 }
-
 
 
 void initialize() {
