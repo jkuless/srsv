@@ -247,12 +247,14 @@ static void *controller(void* x) {
 
 static void *input_simulator(void* x) {
 	struct input* in = x;
-	struct timespec t_activation = in->t0, t_now, msec = {0, 10000000};
+	struct timespec t_activation = in->t0, t_activation_h, t_now, msec = {0, 10000000};
 	
 	clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_activation, NULL);
 	clock_gettime(CLOCK_MONOTONIC, &t_activation);
 	//TIMESPEC_SUB(t_activation, t0); // start of periodic changes for this input
-	TIMESPEC_ADD(t_activation, in->T); // start of the next period
+	t_activation_h = t_activation;
+	TIMESPEC_ADD(t_activation_h, in->T); // start of the next period
+
 
 	while (!end) {
 		in->state = rand() % 900 + 100;
@@ -264,7 +266,7 @@ static void *input_simulator(void* x) {
 		//wait for reply or end of period
 
 		clock_gettime(CLOCK_MONOTONIC, &t_now);
-		while ((in->state != in->reply ) && TIMESPEC_GT(t_activation, t_now)) {
+		while ((in->state != in->reply ) && TIMESPEC_GT(t_activation_h, t_now)) {
 			clock_nanosleep(CLOCK_MONOTONIC, 0, &msec, NULL);
 			clock_gettime(CLOCK_MONOTONIC, &t_now);
 		}
@@ -303,6 +305,8 @@ static void *input_simulator(void* x) {
 		TIMESPEC_ADD(t_activation, in->T);
 		//t_akt += ulaz[i].T
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_activation, NULL);
+		t_activation_h = t_activation;
+		TIMESPEC_ADD(t_activation_h, in->T);
 		//odgodi_do(t_akt)
 	}
 
@@ -349,8 +353,7 @@ int main() {
 	}
 		
 	print_stats();
-	PRINT("%ld\n", number);
-	PRINT("SIMULATION COMPLETE\n");
+	PRINT("\tSIMULATION COMPLETE\n");
 
 	return 0;
 }
