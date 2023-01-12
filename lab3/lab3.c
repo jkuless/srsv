@@ -6,6 +6,8 @@
 
 #include "lab3.h"
 
+#define LAB3RT
+
 static struct input input[] = {
 	{.id = 1, .T = {1, 0}, .t0 = {0, 1000000000}},
 
@@ -111,9 +113,16 @@ void interrupt_handler(int sig) {
 
 
 void consume_10ms() {
+	//struct timespec t1, t2;
+	//TIMESPEC_GET_TIME(t1);
+	
     for(unsigned long int i = 0; i < number; i++) {
         asm volatile("" ::: "memory");
     }
+
+	//TIMESPEC_GET_TIME(t2);
+	//TIMESPEC_SUB(t2, t1);
+	//PRINT("%ld.%ld s\n", t2.tv_sec, t2.tv_nsec);
 }
 
 
@@ -242,7 +251,7 @@ static void *input_simulator(void* x) {
 	
 	clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_activation, NULL);
 	clock_gettime(CLOCK_MONOTONIC, &t_activation);
-	TIMESPEC_SUB(t_activation, t0); // start of periodic changes for this input
+	//TIMESPEC_SUB(t_activation, t0); // start of periodic changes for this input
 	TIMESPEC_ADD(t_activation, in->T); // start of the next period
 
 	while (!end) {
@@ -254,10 +263,10 @@ static void *input_simulator(void* x) {
 
 		//wait for reply or end of period
 
-		TIMESPEC_GET_TIME(t_now);
+		clock_gettime(CLOCK_MONOTONIC, &t_now);
 		while ((in->state != in->reply ) && TIMESPEC_GT(t_activation, t_now)) {
 			clock_nanosleep(CLOCK_MONOTONIC, 0, &msec, NULL);
-			TIMESPEC_GET_TIME(t_now);
+			clock_gettime(CLOCK_MONOTONIC, &t_now);
 		}
 
 		//dok ulaz[i].stanje != ulaz[i].odgovor ILI t_akt + ulaz[i].T > dohvati_sat()
@@ -293,7 +302,7 @@ static void *input_simulator(void* x) {
 		}
 		TIMESPEC_ADD(t_activation, in->T);
 		//t_akt += ulaz[i].T
-		clock_nanosleep(CLOCK_MONOTONIC, 0, &t_activation, NULL);
+		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_activation, NULL);
 		//odgodi_do(t_akt)
 	}
 
@@ -309,6 +318,12 @@ int main() {
 	unsigned int i;
 
 	initialize();
+
+#ifdef LAB3RT
+
+
+
+#endif
 
 	PRINT("INITIALIZATION COMPLETE, STARTING SIMULATION\n");
 
