@@ -3,10 +3,12 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
+#include <sched.h>
 
 #include "lab3.h"
 
-#define LAB3RT
+#define PRIORITY_MAX  6
+#define LAB3RT 0
 
 static struct input input[] = {
 	{.id = 1, .T = {1, 0}, .t0 = {0, 1000000000}},
@@ -36,7 +38,6 @@ static struct stat stats;
 static pthread_mutex_t print_lock;
 static pthread_t ctrl_tid[INPUT_SIZE];
 static pthread_t sim_tid[INPUT_SIZE];
-
 
 void print_stats() {
 	unsigned int i;
@@ -113,16 +114,11 @@ void interrupt_handler(int sig) {
 
 
 void consume_10ms() {
-	//struct timespec t1, t2;
-	//TIMESPEC_GET_TIME(t1);
 	
     for(unsigned long int i = 0; i < number; i++) {
         asm volatile("" ::: "memory");
     }
 
-	//TIMESPEC_GET_TIME(t2);
-	//TIMESPEC_SUB(t2, t1);
-	//PRINT("%ld.%ld s\n", t2.tv_sec, t2.tv_nsec);
 }
 
 
@@ -311,10 +307,7 @@ static void *input_simulator(void* x) {
 	}
 
 	return NULL;
-	//ulaz[i].t_odgovor_avg = ulaz[i].t_odgovor_avg / (ulaz[i].br_promjena - ulaz[i].br_prekasno)
-	//ulaz[i].t_reakcija_avg = ulaz[i].t_reakcija_avg / (ulaz[i].br_promjena - ulaz[i].br_prekasno)
-	//ispiši("zadatak" + i + "statistika" + ...)
-	//br_promjena, br_prekasno, t_max, t_odgovor_avg, t_reakcija_avg
+	
 }
 
 
@@ -322,27 +315,73 @@ int main() {
 	unsigned int i;
 
 	initialize();
+	
+#if LAB3RT
 
-#ifdef LAB3RT
+	long min, policy;
+	pthread_attr_t attr;
+	struct sched_param prio;
 
+	policy = SCHED_FIFO;
+	min = sched_get_priority_min ( policy );
+	//max = sched_get_priority_max ( policy );
 
+	pthread_attr_init ( &attr );
+	pthread_attr_setinheritsched ( &attr, PTHREAD_EXPLICIT_SCHED );
+	pthread_attr_setschedpolicy ( &attr, policy );
+
+	prio.sched_priority = 0;
+	if ( pthread_setschedparam ( pthread_self(), policy, &prio ) ) {
+		perror ( "Error: pthread_setschedparam (root permission?)" );
+		exit (1);
+	}
 
 #endif
 
-	PRINT("INITIALIZATION COMPLETE, STARTING SIMULATION\n");
+	PRINT("\tINITIALIZATION COMPLETE, STARTING SIMULATION\n");
 
 	for (i = 0; i < INPUT_SIZE; i++) {
+#if LAB3RT
+		switch (input[i].T.tv_sec) {
+			case 1:
+				prio.sched_priority = PRIORITY_MAX -1;
+				break;
+			case 2:
+				prio.sched_priority = PRIORITY_MAX - 2;
+				break;
+			case 5:
+				prio.sched_priority = PRIORITY_MAX -3;
+				break;
+			case 10:
+				prio.sched_priority = PRIORITY_MAX -4;
+				break;
+			case 20:
+				prio.sched_priority = PRIORITY_MAX -5;
+				break;
+			default:
+				prio.sched_priority = PRIORITY_MAX / 2;
+		}
+		pthread_attr_setschedparam ( &attr, &prio );
+		if (pthread_create(&ctrl_tid[i], &attr, controller, (void *) &input[i])) {
+			perror("pthread_create failed");
+			exit(1);
+		}
+		prio.sched_priority = PRIORITY_MAX;
+		pthread_attr_setschedparam ( &attr, &prio );
+		if (pthread_create(&sim_tid[i], &attr, input_simulator, (void *) &input[i])) {
+			perror("pthread_create failed");
+			exit(1);
+		}
+#else
 		if (pthread_create(&ctrl_tid[i], NULL, controller, (void *) &input[i])) {
 			perror("pthread_create failed");
 			exit(1);
 		}
-	}
-	
-	for (i = 0; i < INPUT_SIZE; i++) {
 		if (pthread_create(&sim_tid[i], NULL, input_simulator, (void *) &input[i])) {
 			perror("pthread_create failed");
 			exit(1);
 		}
+#endif
 	}
 
 	for (i = 0; i < INPUT_SIZE; i++) {
