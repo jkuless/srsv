@@ -1,21 +1,4 @@
-CFLAGS = -MMD -Wall -Wextra -Werror
-LDFLAGS = -O
-LDLIBS = -lpthread
-
-PROGRAM = lab1
-OBJECTS = lab1.o
-
-$(PROGRAM): $(OBJECTS)
-	$(CC) $(LDFLAGS) $(OBJECTS) $(LDLIBS) -o $(PROGRAM)
-
-DEPS := $(OBJECTS:.o=.d)
-
-.PHONY: run clean
-
-run: $(PROGRAM)
-	@./$(PROGRAM)
-
+lab2: lab1.c lab1.h
+	-gcc -g -Wall -Wextra -lpthread lab1.c -o lab1
 clean:
-	-rm -rf $(PROGRAM) $(OBJECTS) $(DEPS)
-
--include $(DEPS)
+	-rm -f lab1 *.o

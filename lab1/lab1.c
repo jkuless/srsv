@@ -7,6 +7,8 @@
 
 #include "lab1.h"
 
+#define LAB1RT 1
+
 static struct input input[] = {
 	{.id = 1, .T = {1, 0}, .t0 = {0, 100000000}},
 	{.id = 2, .T = {1, 0}, .t0 = {0, 300000000}},
@@ -42,6 +44,44 @@ static struct input input[] = {
     {.id = 32, .T = {20, 0}, .t0 = {16, 800000000}},
     {.id = 33, .T = {20, 0}, .t0 = {17, 800000000}},
     {.id = 34, .T = {20, 0}, .t0 = {18, 800000000}},
+
+#if LAB1RT
+	// overruns
+	{.id = 35, .T = {1, 0}, .t0 = {0, 100000000}},
+	{.id = 36, .T = {1, 0}, .t0 = {0, 300000000}},
+    {.id = 37, .T = {1, 0}, .t0 = {0, 600000000}},
+    {.id = 38, .T = {1, 0}, .t0 = {0, 900000000}},
+    {.id = 39, .T = {2, 0}, .t0 = {0, 400000000}},
+    {.id = 40, .T = {2, 0}, .t0 = {0, 700000000}},
+    {.id = 41, .T = {2, 0}, .t0 = {1, 400000000}},
+    {.id = 42, .T = {2, 0}, .t0 = {1, 700000000}},
+    {.id = 43, .T = {5, 0}, .t0 = {0, 200000000}},
+    {.id = 44, .T = {5, 0}, .t0 = {1, 200000000}},
+    {.id = 45, .T = {5, 0}, .t0 = {2, 200000000}},
+	{.id = 46, .T = {5, 0}, .t0 = {3, 200000000}},
+	{.id = 47, .T = {10, 0}, .t0 = {0, 500000000}},
+	{.id = 48, .T = {10, 0}, .t0 = {1, 500000000}},
+	{.id = 49, .T = {10, 0}, .t0 = {2, 500000000}},
+	{.id = 50, .T = {10, 0}, .t0 = {3, 500000000}},
+	{.id = 51, .T = {10, 0}, .t0 = {4, 500000000}},
+    {.id = 52, .T = {10, 0}, .t0 = {5, 500000000}},
+    {.id = 53, .T = {10, 0}, .t0 = {6, 500000000}},
+    {.id = 54, .T = {10, 0}, .t0 = {7, 500000000}},
+    {.id = 55, .T = {10, 0}, .t0 = {9, 500000000}},
+    {.id = 56, .T = {20, 0}, .t0 = {0, 800000000}},
+    {.id = 57, .T = {20, 0}, .t0 = {1, 800000000}},
+    {.id = 58, .T = {20, 0}, .t0 = {2, 800000000}},
+    {.id = 59, .T = {20, 0}, .t0 = {3, 800000000}},
+    {.id = 60, .T = {20, 0}, .t0 = {4, 800000000}},
+    {.id = 61, .T = {20, 0}, .t0 = {9, 800000000}},
+    {.id = 62, .T = {20, 0}, .t0 = {10, 800000000}},
+    {.id = 63, .T = {20, 0}, .t0 = {11, 800000000}},
+    {.id = 64, .T = {20, 0}, .t0 = {13, 800000000}},
+    {.id = 65, .T = {20, 0}, .t0 = {15, 800000000}},
+    {.id = 66, .T = {20, 0}, .t0 = {16, 800000000}},
+    {.id = 67, .T = {20, 0}, .t0 = {17, 800000000}},
+    {.id = 68, .T = {20, 0}, .t0 = {18, 800000000}},
+#endif
 };
 
 #define INPUT_SIZE sizeof(input) / sizeof(struct input)
@@ -186,53 +226,22 @@ static void *controller(void* x) {
 	struct input* in = x;
     unsigned int i, state;
 	long int proc_time;
-	struct timespec t_now, t_next_period, t_proc_time;
-	//clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &in->t0, NULL); 	// wait for input to start
+	struct timespec t_proc_time;
 
 	while (!end) {
         for(i = 0; i < INPUT_SIZE && !end; i++) {
-            state = in[i].state;
-		    TIMESPEC_GET_TIME(in[i].t_reaction);
-		    t_next_period = in[i].t_state;
-		    TIMESPEC_ADD(t_next_period, in[i].T);
-		    proc_time = simulate_processing_time();
-            t_proc_time = {0, proc_time * 1e6};
-		    PRINT("CTRL%02d: starting to process state %d\n", in[i].id, state);
-		    clock_nanosleep(CLOCK_MONOTONIC, 0, &t_proc_time, NULL);
-		    PRINT("CTRL%02d: finished processing state: %d\n", in[i].id, state);
-		    in[i].reply = state;
-		    TIMESPEC_GET_TIME(in[i].t_reply);
+			if(in[i].state != in[i].reply) {
+				state = in[i].state;
+		    	TIMESPEC_GET_TIME(in[i].t_reaction);
+		    	proc_time = simulate_processing_time();
+            	t_proc_time = (struct timespec){0, proc_time * 1e6};
+		    	PRINT("CTRL%02d: starting to process state %d\n", in[i].id, state);
+		    	clock_nanosleep(CLOCK_MONOTONIC, 0, &t_proc_time, NULL);
+		    	PRINT("CTRL%02d: finished processing state: %d\n", in[i].id, state);
+		    	in[i].reply = state;
+		    	TIMESPEC_GET_TIME(in[i].t_reply);
+			}
         }
-	}
-
-	return NULL;
-} 
-
-static void *controller(void* x) {
-	struct input* in = x;
-	int state = 0;
-	long int proc_time_share;
-	struct timespec t_next_period;
-	t_next_period = in->t0;
-	clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &in->t0, NULL); 	// wait for input to start
-
-	while (!end) {
-		t_next_period = in->t_state;
-		TIMESPEC_ADD(t_next_period, t0);
-		TIMESPEC_ADD(t_next_period, in->T);
-
-		if (state != in->state) {
-			state = in->state;
-			TIMESPEC_GET_TIME(in->t_reaction);
-			proc_time_share = simulate_processing_time();
-			proc_time_share = ((in->T.tv_sec * 1000) + (in->T.tv_nsec / 1e6)) * proc_time_share / 10; //convert period to ms and multiply by percentage of period
-			PRINT("CTRL%02d: starting to process state %d\n", in->id, state);
-			simulate_Xms(proc_time_share);
-			PRINT("CTRL%02d: finished processing state: %d\n", in->id, state);
-			in->reply = state;
-			TIMESPEC_GET_TIME(in->t_reply);
-		}
-		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next_period, NULL);
 	}
 	return NULL;
 } 
