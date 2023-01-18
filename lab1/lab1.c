@@ -208,6 +208,35 @@ static void *controller(void* x) {
 	return NULL;
 } 
 
+static void *controller(void* x) {
+	struct input* in = x;
+	int state = 0;
+	long int proc_time_share;
+	struct timespec t_next_period;
+	t_next_period = in->t0;
+	clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &in->t0, NULL); 	// wait for input to start
+
+	while (!end) {
+		t_next_period = in->t_state;
+		TIMESPEC_ADD(t_next_period, t0);
+		TIMESPEC_ADD(t_next_period, in->T);
+
+		if (state != in->state) {
+			state = in->state;
+			TIMESPEC_GET_TIME(in->t_reaction);
+			proc_time_share = simulate_processing_time();
+			proc_time_share = ((in->T.tv_sec * 1000) + (in->T.tv_nsec / 1e6)) * proc_time_share / 10; //convert period to ms and multiply by percentage of period
+			PRINT("CTRL%02d: starting to process state %d\n", in->id, state);
+			simulate_Xms(proc_time_share);
+			PRINT("CTRL%02d: finished processing state: %d\n", in->id, state);
+			in->reply = state;
+			TIMESPEC_GET_TIME(in->t_reply);
+		}
+		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next_period, NULL);
+	}
+	return NULL;
+} 
+
 
 static void *input_simulator(void* x) {
 	struct input* in = x;
@@ -215,7 +244,6 @@ static void *input_simulator(void* x) {
 	
 	clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_activation, NULL);
 	clock_gettime(CLOCK_MONOTONIC, &t_activation);
-	//TIMESPEC_SUB(t_activation, t0); // start of periodic changes for this input
 	t_activation_h = t_activation;
 	TIMESPEC_ADD(t_activation_h, in->T); // start of the next period
 
@@ -227,51 +255,35 @@ static void *input_simulator(void* x) {
 		in->stat.runs++;
 		PRINT("INPUT%02d: state changed to %d\n", in->id, in->state);
 
-		//wait for reply or end of period
-
 		clock_gettime(CLOCK_MONOTONIC, &t_now);
-		while ((in->state != in->reply ) && TIMESPEC_GT(t_activation_h, t_now)) {
+		while ((in->state != in->reply ) && TIMESPEC_GT(t_activation_h, t_now)) { //wait for reply or end of period
 			clock_nanosleep(CLOCK_MONOTONIC, 0, &msec, NULL);
 			clock_gettime(CLOCK_MONOTONIC, &t_now);
 		}
 
-		//dok ulaz[i].stanje != ulaz[i].odgovor ILI t_akt + ulaz[i].T > dohvati_sat()
-		//	spavaj(10 ms)
 
 		if (in->state == in->reply) {
 			struct timespec wait, reaction;
-			//TIMESPEC_GET_TIME(wait);
 			wait = in->t_reply;
-			TIMESPEC_SUB(wait, in->t_state);
-			//cekanje = dohvati_sat() - ulaz[i].t_stanja
+			TIMESPEC_SUB(wait, in->t_state);	// time took for controller to reply
 			TIMESPEC_ADD(in->stat.t_sum_reply, wait);
-			//ulaz[i].t_odgovor_avg += cekanje
 			if (TIMESPEC_GT(wait, in->stat.t_max_reply)) {
 				in->stat.t_max_reply = wait;
 			}
-			//ulaz[i].t_max = max(ulaz[i].t_max, cekanje)
 			reaction = in->t_reaction;
-			TIMESPEC_SUB(reaction, in->t_state);
-			//reakcija = ulaz[i].t_reakcija - ulaz[i].t_stanja
+			TIMESPEC_SUB(reaction, in->t_state); // time too for controller to react to new input
 			TIMESPEC_ADD(in->stat.t_sum_reaction, reaction);
-			//ulaz[i].t_reakcija_avg += reakcija
 			PRINT("INPUT%02d: reply received in %03ld.%06lds ;; controller reaction in %03ld.%06lds\n", in->id,
 			 wait.tv_sec/100, wait.tv_nsec/1000, reaction.tv_sec/100, reaction.tv_nsec/1000);
-			//ispiši(dohvati_sat() + "ulaz" + i + "dobio odgovor za" + cekanje,
-			//"reakcija na promjenu za" + reakcija)
 		}
 		else {
 			PRINT("INPUT%02d: no reply\n", in->id);
-			//ispiši(dohvati_sat() + "ulaz" + i + "nema odgovora")
 			in->stat.overruns++;
-			//ulaz[i].br_prekasno++
 		}
 		TIMESPEC_ADD(t_activation, in->T);
-		//t_akt += ulaz[i].T
-		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_activation, NULL);
+		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_activation, NULL); // wait until next period
 		t_activation_h = t_activation;
 		TIMESPEC_ADD(t_activation_h, in->T);
-		//odgodi_do(t_akt)
 	}
 
 	return NULL;
