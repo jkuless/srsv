@@ -1,2 +1,2 @@
 # srsv
-Laboratory exercies solutions from Real-time systems course at FER, Zagreb.
+Laboratory exercises solutions from Real-time systems course at FER, Zagreb.
